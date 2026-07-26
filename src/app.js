@@ -1,5 +1,5 @@
 import Hls from 'hls.js';
-import { parseM3U, extractCategories } from './m3uParser.js';
+import { parseM3U, extractCategories, sortChannelsByCategory } from './m3uParser.js';
 
 const PRIMARY_PLAYLIST_URL = 'https://iptv-org.github.io/iptv/index.m3u';
 const SECONDARY_PLAYLIST_URL = 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8';
@@ -254,12 +254,14 @@ class TvCanVlcApp {
       });
 
       combinedChannels = Array.from(urlMap.values());
-      try {
-        localStorage.setItem(STORAGE_KEY_CACHE, JSON.stringify(combinedChannels.slice(0, 5000)));
-      } catch (e) {}
     }
 
-    this.channels = combinedChannels;
+    // Sort and group strictly by unified category
+    this.channels = sortChannelsByCategory(combinedChannels);
+    try {
+      localStorage.setItem(STORAGE_KEY_CACHE, JSON.stringify(this.channels.slice(0, 5000)));
+    } catch (e) {}
+
     this.categories = extractCategories(this.channels);
 
     this.updateCategoryUI();
