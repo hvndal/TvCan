@@ -4,5 +4,6 @@ dist-app/
 dist-exe/
 dist-installer/
 *.zip
+!release-parts/*.zip
 *.log
 .DS_Store
