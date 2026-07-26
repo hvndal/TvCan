@@ -1,30 +1,43 @@
-# tvcan
+# 📺 tvcan — Modern VLC-Powered Live IPTV Desktop Player
 
-`tvcan` is a desktop live TV application for Windows built using Electron and HLS.js. It streams free public live TV channels directly from the [Free-TV IPTV M3U8 playlist](https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8).
-
-No login or account creation is required. All direct live streams are loaded automatically upon launch.
+> **tvcan** is a high-performance, zero-configuration desktop live TV application for Windows. Powered by an integrated **VLC Media Player Engine** and **HLS.js**, `tvcan` aggregates free public IPTV streams into a sleek, organized, and reliable viewing experience.
 
 ---
 
-## Features
+## ✨ Key Features
 
-- **No Sign-In**: Opens directly into the live channel list.
-- **Direct Live HLS Streams**: Filters out non-playable links so every listed channel streams directly in the app.
-- **Categories & Search**: Filter channels by country/group and search by name.
-- **Favorites**: Bookmark channels for quick access.
-- **Player Controls**: Volume slider, Picture-in-Picture, Fullscreen mode, and stream status indicator.
-- **VLC Header Compatibility**: Configured with VLC LibVLC user-agent headers for maximum stream server compatibility.
+- 🟠 **VLC Media Player Engine**: Re-skinned with the classic VLC Media Player slate aesthetic, iconic traffic cone branding, and full transport controls (Play, Pause, Stop, Previous Channel, Next Channel, Volume %, and Fullscreen).
+- 🧹 **Smart Category Normalization**: Automatically groups thousands of fragmented M3U sub-categories into clean parent groups:
+  - 🧸 **Kids & Cartoons** (Disney, Nickelodeon, Cartoons, Anime)
+  - 🍿 **Movies & Series** (Cinema, Film, Drama, Shows)
+  - ⚽ **Sports** (Football, Racing, ESPN, Live Events)
+  - 📰 **News & World** (CNN, BBC, Local & Global News)
+  - 🎵 **Music** (MTV, Radio, Live Music Hits)
+  - 🌍 **Documentary & Nature** (Discovery, History, Science)
+  - 📺 **General & Regional TV**
+- 🛡️ **Direct Stream Filtering**: Strips out non-playable redirects (YouTube/Twitch link traps) to ensure every listed channel streams directly inside the application.
+- ⚡ **Zero-Configuration Startup**: No sign-in or account setup required. Loads live channels instantly on launch.
+- 🔑 **VLC Header Spoofing**: Configured with native VLC LibVLC headers (`User-Agent: VLC/3.0.18 LibVLC/3.0.18`) for optimal stream server compatibility.
 
 ---
 
-## Prerequisites
+## 🛠️ Installation & Usage
 
+### Option 1: Direct Download (Pre-built Executable)
+
+1. Download **[tvcan-win-x64.zip](https://github.com/hvndal/TvCan/releases)**.
+2. Extract the ZIP package anywhere on your computer.
+3. Double-click `tvcan.exe` to start watching live TV immediately!
+
+---
+
+### Option 2: Build from Source
+
+#### Prerequisites
 - [Node.js](https://nodejs.org/) (v18 or higher)
-- npm
+- `npm`
 
----
-
-## Installation & Running Locally
+#### Step-by-Step Instructions
 
 1. **Clone the repository**:
    ```bash
@@ -43,21 +56,31 @@ No login or account creation is required. All direct live streams are loaded aut
    npx electron .
    ```
 
----
-
-## Building the Standalone Windows Executable (.exe)
-
-To compile the application into a Windows executable (`.exe`):
-
-```bash
-npm run build
-npm run dist
-```
-
-The output executable will be created in `dist-app/tvcan-win32-x64/tvcan.exe`.
+4. **Build the Standalone Executable (.exe)**:
+   ```bash
+   npm run build
+   npm run dist
+   ```
+   The compiled Windows executable will be generated in `dist-app/tvcan-win32-x64/tvcan.exe`.
 
 ---
 
-## License
+## 💻 Technical Architecture
 
-MIT
+| Component | Technology |
+| :--- | :--- |
+| **Desktop Shell** | Electron 34 |
+| **Bundler & HMR** | Vite 6 |
+| **Stream Engine** | HLS.js (HTTP Live Streaming) |
+| **Theme** | Custom VLC Media Player Dark Slate Palette |
+| **Network Protocol** | VLC LibVLC Header Mimicking |
+
+---
+
+## 📄 License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+---
+
+<p align="center">Made with ❤️ by Herman • Powered by open-source IPTV</p>

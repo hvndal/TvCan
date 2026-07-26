@@ -7,7 +7,7 @@ const STORAGE_KEY_PLAYLIST_URL = 'tvcan_playlist_url';
 const STORAGE_KEY_FAVORITES = 'tvcan_favorites';
 const STORAGE_KEY_CACHE = 'tvcan_cached_m3u';
 
-class TvCanApp {
+class TvCanVlcApp {
   constructor() {
     this.playlistUrl = localStorage.getItem(STORAGE_KEY_PLAYLIST_URL) || PRIMARY_PLAYLIST_URL;
     this.favorites = new Set(JSON.parse(localStorage.getItem(STORAGE_KEY_FAVORITES) || '[]'));
@@ -16,6 +16,7 @@ class TvCanApp {
     this.categories = [];
     this.activeCategory = 'ALL';
     this.searchQuery = '';
+    this.activeChannelIndex = -1;
     this.activeChannel = null;
     this.hlsEngine = null;
 
@@ -44,8 +45,15 @@ class TvCanApp {
       playingTitle: document.getElementById('playingTitle'),
       playingMeta: document.getElementById('playingMeta'),
       playingStatus: document.getElementById('playingStatus'),
+      btnPlayPause: document.getElementById('btnPlayPause'),
+      iconPlay: document.getElementById('iconPlay'),
+      iconPause: document.getElementById('iconPause'),
+      btnStop: document.getElementById('btnStop'),
+      btnPrevChannel: document.getElementById('btnPrevChannel'),
+      btnNextChannel: document.getElementById('btnNextChannel'),
       btnMute: document.getElementById('btnMute'),
       volumeSlider: document.getElementById('volumeSlider'),
+      volumeText: document.getElementById('volumeText'),
       btnPip: document.getElementById('btnPip'),
       btnFullscreen: document.getElementById('btnFullscreen'),
       currentCategoryTitle: document.getElementById('currentCategoryTitle'),
@@ -88,7 +96,7 @@ class TvCanApp {
       }
     });
 
-    // Category click delegation
+    // Category delegation
     this.dom.categoryMenu.addEventListener('click', (e) => {
       const item = e.target.closest('.menu-item');
       if (!item) return;
@@ -99,16 +107,49 @@ class TvCanApp {
       }
     });
 
-    // Video Player Controls
+    // VLC Transport Controls
+    this.dom.btnPlayPause.addEventListener('click', () => {
+      if (!this.activeChannel && this.filteredChannels.length > 0) {
+        this.playChannel(this.filteredChannels[0], 0);
+        return;
+      }
+      if (this.dom.videoPlayer.paused) {
+        this.dom.videoPlayer.play();
+      } else {
+        this.dom.videoPlayer.pause();
+      }
+    });
+
+    this.dom.btnStop.addEventListener('click', () => {
+      this.stopPlayer();
+    });
+
+    this.dom.btnPrevChannel.addEventListener('click', () => {
+      if (this.filteredChannels.length === 0) return;
+      let nextIndex = this.activeChannelIndex - 1;
+      if (nextIndex < 0) nextIndex = this.filteredChannels.length - 1;
+      this.playChannel(this.filteredChannels[nextIndex], nextIndex);
+    });
+
+    this.dom.btnNextChannel.addEventListener('click', () => {
+      if (this.filteredChannels.length === 0) return;
+      let nextIndex = this.activeChannelIndex + 1;
+      if (nextIndex >= this.filteredChannels.length) nextIndex = 0;
+      this.playChannel(this.filteredChannels[nextIndex], nextIndex);
+    });
+
     this.dom.btnMute.addEventListener('click', () => {
       this.dom.videoPlayer.muted = !this.dom.videoPlayer.muted;
-      this.dom.volumeSlider.value = this.dom.videoPlayer.muted ? 0 : this.dom.videoPlayer.volume;
+      const vol = this.dom.videoPlayer.muted ? 0 : this.dom.videoPlayer.volume;
+      this.dom.volumeSlider.value = vol;
+      this.dom.volumeText.textContent = `${Math.round(vol * 100)}%`;
     });
 
     this.dom.volumeSlider.addEventListener('input', (e) => {
       const val = parseFloat(e.target.value);
       this.dom.videoPlayer.volume = val;
       this.dom.videoPlayer.muted = val === 0;
+      this.dom.volumeText.textContent = `${Math.round(val * 100)}%`;
     });
 
     this.dom.btnPip.addEventListener('click', async () => {
@@ -136,19 +177,38 @@ class TvCanApp {
     video.addEventListener('playing', () => {
       this.hideOverlay();
       this.dom.playingStatus.textContent = 'LIVE';
+      this.dom.iconPlay.classList.add('hidden');
+      this.dom.iconPause.classList.remove('hidden');
+    });
+    video.addEventListener('pause', () => {
+      this.dom.iconPlay.classList.remove('hidden');
+      this.dom.iconPause.classList.add('hidden');
     });
     video.addEventListener('waiting', () => this.showOverlay(true, 'Buffering stream...', 'Please wait'));
     video.addEventListener('error', () => {
-      this.showOverlay(false, 'Stream Unavailable', 'This live stream is currently offline');
+      this.showOverlay(false, 'Stream Offline', 'This live stream link is currently unwatchable');
       this.dom.playingStatus.textContent = 'Offline';
     });
+  }
+
+  stopPlayer() {
+    if (this.hlsEngine) {
+      this.hlsEngine.destroy();
+      this.hlsEngine = null;
+    }
+    this.dom.videoPlayer.pause();
+    this.dom.videoPlayer.src = '';
+    this.dom.playingStatus.textContent = 'Stopped';
+    this.dom.iconPlay.classList.remove('hidden');
+    this.dom.iconPause.classList.add('hidden');
+    this.showOverlay(false, 'Stream Stopped', 'vlc player • tvcan made by herman');
   }
 
   showOverlay(showSpinner, title, sub) {
     this.dom.playerOverlay.classList.remove('hidden');
     this.dom.playerSpinner.style.display = showSpinner ? 'block' : 'none';
     this.dom.overlayTitle.textContent = title;
-    this.dom.overlaySub.textContent = sub || 'tvcan made by herman';
+    this.dom.overlaySub.textContent = sub || 'tvcan • vlc media player';
   }
 
   hideOverlay() {
@@ -160,13 +220,13 @@ class TvCanApp {
       const res = await fetch(url);
       if (res.ok) return await res.text();
     } catch (e) {
-      console.warn('Failed to fetch:', url, e);
+      console.warn('Failed to fetch playlist:', url, e);
     }
     return '';
   }
 
   async loadPlaylist(forceFetch = false) {
-    this.showOverlay(true, 'Loading Channels...', 'tvcan made by herman');
+    this.showOverlay(true, 'Loading Live Channels...', 'tvcan vlc player • made by herman');
 
     let combinedChannels = [];
 
@@ -178,7 +238,6 @@ class TvCanApp {
     if (cached) {
       combinedChannels = JSON.parse(cached);
     } else {
-      // Fetch both iptv-org and Free-TV playlists in parallel
       const [primaryRaw, secondaryRaw] = await Promise.all([
         this.fetchPlaylistText(this.playlistUrl),
         this.fetchPlaylistText(SECONDARY_PLAYLIST_URL)
@@ -187,7 +246,6 @@ class TvCanApp {
       const channels1 = parseM3U(primaryRaw);
       const channels2 = parseM3U(secondaryRaw);
 
-      // Combine and remove duplicates by stream URL
       const urlMap = new Map();
       [...channels1, ...channels2].forEach(ch => {
         if (ch.url && !urlMap.has(ch.url)) {
@@ -206,7 +264,7 @@ class TvCanApp {
 
     this.updateCategoryUI();
     this.renderChannels();
-    this.showOverlay(false, 'Select a Channel to Play', 'tvcan made by herman');
+    this.showOverlay(false, 'Select a Channel to Play', 'tvcan vlc player • made by herman');
   }
 
   updateCategoryUI() {
@@ -215,7 +273,7 @@ class TvCanApp {
 
     this.dom.categoryList.innerHTML = this.categories.map(cat => `
       <div class="menu-item ${this.activeCategory === cat.name ? 'active' : ''}" data-category="${this.escapeHtml(cat.name)}">
-        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:140px;">${this.escapeHtml(cat.name)}</span>
+        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:150px;">${this.escapeHtml(cat.name)}</span>
         <span class="menu-badge">${cat.count}</span>
       </div>
     `).join('');
@@ -227,7 +285,7 @@ class TvCanApp {
       el.classList.toggle('active', el.dataset.category === category);
     });
 
-    this.dom.currentCategoryTitle.textContent = category === 'ALL' ? 'All Channels' : (category === 'FAVORITES' ? 'Favorites' : category);
+    this.dom.currentCategoryTitle.textContent = category === 'ALL' ? 'All Working Channels' : (category === 'FAVORITES' ? 'Favorites' : category);
     this.renderChannels();
   }
 
@@ -254,23 +312,22 @@ class TvCanApp {
     if (list.length === 0) {
       this.dom.channelsGrid.innerHTML = `
         <div class="empty-state" style="grid-column: 1/-1;">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"></circle><path d="M16 16s-1.5-2-4-2-4 2-4 2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
-          <div>No channels match your criteria</div>
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"></circle><path d="M16 16s-1.5-2-4-2-4 2-4 2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
+          <div>No active channels match your search</div>
         </div>
       `;
       return;
     }
 
-    // Render up to 500 channels at a time for high performance rendering
-    const renderList = list.slice(0, 500);
+    const renderList = list.slice(0, 400);
 
-    this.dom.channelsGrid.innerHTML = renderList.map(ch => {
+    this.dom.channelsGrid.innerHTML = renderList.map((ch, idx) => {
       const isFav = this.favorites.has(ch.id);
       const isActive = this.activeChannel?.id === ch.id;
       const initial = ch.title.charAt(0).toUpperCase();
 
       return `
-        <div class="channel-card ${isActive ? 'active' : ''}" data-id="${ch.id}">
+        <div class="channel-card ${isActive ? 'active' : ''}" data-id="${ch.id}" data-index="${idx}">
           <div class="channel-logo-wrapper">
             ${ch.logo ? `<img class="channel-logo" src="${this.escapeHtml(ch.logo)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" alt="">` : ''}
             <span class="channel-logo-placeholder" style="${ch.logo ? 'display:none;' : ''}">${initial}</span>
@@ -280,7 +337,7 @@ class TvCanApp {
             <div class="channel-group">${this.escapeHtml(ch.group)}</div>
           </div>
           <button class="fav-btn ${isFav ? 'active' : ''}" data-fav-id="${ch.id}" title="Favorite">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="${isFav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="${isFav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
           </button>
         </div>
       `;
@@ -290,7 +347,8 @@ class TvCanApp {
       card.addEventListener('click', (e) => {
         const favBtn = e.target.closest('.fav-btn');
         const chId = card.dataset.id;
-        const channel = this.channels.find(c => c.id === chId);
+        const idx = parseInt(card.dataset.index, 10);
+        const channel = this.filteredChannels[idx];
 
         if (favBtn) {
           e.stopPropagation();
@@ -299,7 +357,7 @@ class TvCanApp {
         }
 
         if (channel) {
-          this.playChannel(channel);
+          this.playChannel(channel, idx);
         }
       });
     });
@@ -317,8 +375,9 @@ class TvCanApp {
     this.renderChannels();
   }
 
-  playChannel(channel) {
+  playChannel(channel, index = -1) {
     this.activeChannel = channel;
+    this.activeChannelIndex = index;
     
     document.querySelectorAll('.channel-card').forEach(card => {
       card.classList.toggle('active', card.dataset.id === channel.id);
@@ -367,7 +426,7 @@ class TvCanApp {
               this.hlsEngine.recoverMediaError();
               break;
             default:
-              this.showOverlay(false, 'Stream Offline', 'tvcan made by herman');
+              this.showOverlay(false, 'Stream Offline', 'vlc player • tvcan made by herman');
               break;
           }
         }
@@ -391,5 +450,5 @@ class TvCanApp {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  window.app = new TvCanApp();
+  window.app = new TvCanVlcApp();
 });
