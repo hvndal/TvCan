@@ -10,10 +10,12 @@
     "build": "vite build",
     "preview": "vite preview",
     "electron:dev": "vite & electron .",
-    "dist": "vite build && electron-packager . tvcan --platform=win32 --arch=x64 --out=dist-app --overwrite"
+    "dist": "vite build && electron-packager . tvcan --platform=win32 --arch=x64 --icon=icon.ico --out=dist-app --overwrite"
   },
   "dependencies": {
-    "hls.js": "^1.5.20"
+    "hls.js": "^1.5.20",
+    "jimp": "^0.16.1",
+    "png-to-ico": "^3.0.2"
   },
   "devDependencies": {
     "electron": "^34.2.0",
