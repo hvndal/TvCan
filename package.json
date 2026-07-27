@@ -18,6 +18,7 @@
     "png-to-ico": "^3.0.2"
   },
   "devDependencies": {
+    "archiver": "^8.0.0",
     "electron": "^34.2.0",
     "electron-packager": "^17.1.2",
     "electron-winstaller": "^5.4.4",
