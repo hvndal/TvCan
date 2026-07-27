@@ -9,7 +9,7 @@ const TAG_NAME = 'v1.0.0';
 const RELEASE_NAME = 'tvcan v1.0.0 — VLC Media Player Engine';
 const RELEASE_DESCRIPTION = 'High-performance desktop live TV player with integrated VLC Media Player engine, smart category consolidation, and direct HLS stream filtering.';
 
-const FILE_TO_UPLOAD = path.join(process.cwd(), 'tvcan-win-x64.zip');
+const FILE_TO_UPLOAD = path.join(process.cwd(), 'dist-installer', 'tvcan-Setup-1.0.0.exe');
 
 async function main() {
   console.log('🚀 Step 1: Pushing latest code to GitHub repository...');
@@ -93,7 +93,7 @@ async function main() {
   }
 
   const rawUploadUrl = uploadUrl.split('{')[0];
-  const targetUploadUrl = `${rawUploadUrl}?name=tvcan-win-x64.zip`;
+  const targetUploadUrl = `${rawUploadUrl}?name=tvcan-Setup-1.0.0.exe`;
 
   console.log(`\n⬆️ Step 3: Uploading ${fileSizeMB} MB asset to GitHub Release...`);
   const fileBuffer = fs.readFileSync(FILE_TO_UPLOAD);

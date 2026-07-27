@@ -15,6 +15,7 @@ async function buildInstaller() {
       authors: 'herman',
       exe: 'tvcan.exe',
       setupExe: 'tvcan-Setup-1.0.0.exe',
+      setupIcon: path.join(__dirname, 'icon.ico'),
       noMsi: true,
       description: 'tvcan - Live IPTV Desktop Player'
     });
