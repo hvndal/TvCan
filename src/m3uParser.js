@@ -58,7 +58,7 @@ function parseExtInfLine(line, idIndex) {
 
   if (!title && tvgName) title = tvgName;
 
-  const category = normalizeCategory(groupTitle, title);
+  const category = normalizeCategory(groupTitle, title, tvgCountry);
 
   return {
     id: `channel-${idIndex}-${Math.random().toString(36).substr(2, 6)}`,
@@ -68,108 +68,91 @@ function parseExtInfLine(line, idIndex) {
     tvgId: tvgId || '',
     country: tvgCountry || '',
     group: category,
-    rawGroup: groupTitle || 'General',
+    rawGroup: groupTitle || 'Misc',
     url: '',
     isWorking: true
   };
 }
 
 /**
- * Consolidates all fragmented raw categories into 7 unified primary groups
+ * Consolidates all fragmented raw categories into unified primary groups
  */
-function normalizeCategory(rawGroup = '', channelTitle = '') {
+function normalizeCategory(rawGroup = '', channelTitle = '', tvgCountry = '') {
   const text = `${rawGroup} ${channelTitle}`.toLowerCase();
+  const rawGroupLower = rawGroup.toLowerCase();
 
-  // 1. Kids & Cartoons
+  // 1. Kids
   if (
     text.includes('kid') || text.includes('child') || text.includes('cartoon') ||
     text.includes('disney') || text.includes('nick') || text.includes('anime') ||
     text.includes('junior') || text.includes('toon') || text.includes('baby') ||
-    text.includes('cbbc') || text.includes('cbeebies') || text.includes('kika') ||
-    text.includes('gulli') || text.includes('youth') || text.includes('pixar') ||
-    text.includes('animation') || text.includes('boing') || text.includes('boomerang')
+    text.includes('animation')
   ) {
-    return '🧸 Kids & Cartoons';
+    return '🧸 Kids';
   }
 
-  // 2. Movies & Entertainment
+  // 2. Entertainment
   if (
     text.includes('movie') || text.includes('cinema') || text.includes('film') ||
-    text.includes('series') || text.includes('drama') || text.includes('hbo') ||
-    text.includes('show') || text.includes('comedy') || text.includes('action') ||
-    text.includes('enter') || text.includes('variet') || text.includes('life') ||
-    text.includes('style') || text.includes('fashion') || text.includes('reality') ||
-    text.includes('fox') || text.includes('paramount') || text.includes('amc') ||
-    text.includes('tnt') || text.includes('wb') || text.includes('universal') ||
-    text.includes('star') || text.includes('axn') || text.includes('fx') ||
-    text.includes('thriller') || text.includes('romance') || text.includes('horror')
+    text.includes('series') || text.includes('drama') || text.includes('show') ||
+    text.includes('comedy') || text.includes('action') || text.includes('enter') ||
+    text.includes('thriller') || text.includes('romance') || text.includes('horror') ||
+    text.includes('tv')
   ) {
-    return '🍿 Movies & Entertainment';
+    return '🍿 Entertainment';
   }
-
+  
   // 3. Sports
   if (
     text.includes('sport') || text.includes('soccer') || text.includes('foot') ||
-    text.includes('espn') || text.includes('racing') || text.includes('nba') ||
-    text.includes('nfl') || text.includes('f1') || text.includes('golf') ||
-    text.includes('fight') || text.includes('arena') || text.includes('wwe') ||
-    text.includes('tennis') || text.includes('cricket') || text.includes('bein') ||
-    text.includes('sky sport') || text.includes('eurosport') || text.includes('super sport') ||
-    text.includes('dazn') || text.includes('motogp') || text.includes('ufc')
+    text.includes('nba') || text.includes('nfl') || text.includes('espn') || 
+    text.includes('wwe') || text.includes('fight') || text.includes('racing')
   ) {
     return '⚽ Sports';
   }
-
-  // 4. News & World
+  
+  // 4. News
   if (
-    text.includes('news') || text.includes('weather') || text.includes('info') ||
-    text.includes('politic') || text.includes('cnn') || text.includes('bbc') ||
-    text.includes('press') || text.includes('actuality') || text.includes('al jazeera') ||
-    text.includes('euronews') || text.includes('bloomberg') || text.includes('fox news') ||
-    text.includes('msnbc') || text.includes('sky news') || text.includes('reuters')
+    text.includes('news') || text.includes('weather') || text.includes('cnn') ||
+    text.includes('bbc')
   ) {
-    return '📰 News & World';
+    return '📰 News';
   }
 
-  // 5. Music
-  if (
-    text.includes('music') || text.includes('radio') || text.includes('mtv') ||
-    text.includes('hit') || text.includes('sound') || text.includes('song') ||
-    text.includes('audio') || text.includes('dance') || text.includes('vh1') ||
-    text.includes('trace') || text.includes('clubbing') || text.includes('dj')
-  ) {
-    return '🎵 Music';
+  // 5. Countries
+  if (tvgCountry && tvgCountry.trim() !== '') {
+    return `🗺️ ${tvgCountry.trim().toUpperCase()}`;
   }
 
-  // 6. Documentary & Nature
-  if (
-    text.includes('docu') || text.includes('history') || text.includes('science') ||
-    text.includes('nature') || text.includes('discovery') || text.includes('geo') ||
-    text.includes('wild') || text.includes('planet') || text.includes('animal') ||
-    text.includes('nat geo') || text.includes('explore') || text.includes('archaeo')
-  ) {
-    return '🌍 Documentary & Nature';
+  // Fallback to extract country from raw group (e.g. "UK - Entertainment" -> "UK")
+  const countryMatch = rawGroup.match(/^([A-Z]{2,3}|[A-Z][a-z]+(?: [A-Z][a-z]+)*)(?:\s*[-|:]|\s+)/);
+  if (countryMatch && countryMatch[1]) {
+    const possibleCountry = countryMatch[1].trim().toUpperCase();
+    if (possibleCountry.length <= 15 && possibleCountry !== 'THE' && possibleCountry !== 'ALL' && possibleCountry !== 'LIVE') {
+      return `🗺️ ${possibleCountry}`;
+    }
   }
 
-  // 7. General & Regional TV
-  return '📺 General & Regional TV';
+  if (rawGroup && rawGroup.trim() !== '' && rawGroupLower !== 'undefined' && rawGroupLower !== 'general' && rawGroupLower !== 'misc') {
+    return `🗺️ ${rawGroup.trim()}`;
+  }
+
+  // 6. Misc
+  return '📺 Misc';
 }
 
 const CATEGORY_ORDER = [
-  '🧸 Kids & Cartoons',
-  '🍿 Movies & Entertainment',
+  '🧸 Kids',
+  '🍿 Entertainment',
   '⚽ Sports',
-  '📰 News & World',
-  '🎵 Music',
-  '🌍 Documentary & Nature',
-  '📺 General & Regional TV'
+  '📰 News'
 ];
 
 export function extractCategories(channels) {
   const categoryMap = new Map();
 
   channels.forEach(ch => {
-    const groupName = ch.group || '📺 General & Regional TV';
+    const groupName = ch.group || '📺 Misc';
     categoryMap.set(groupName, (categoryMap.get(groupName) || 0) + 1);
   });
 
