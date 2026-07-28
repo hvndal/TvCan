@@ -3,7 +3,8 @@ import path from 'path';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
-const archiver = require('archiver');
+const archiverLib = require('archiver');
+const archiver = typeof archiverLib === 'function' ? archiverLib : archiverLib.default || archiverLib;
 
 const outputZipPath = path.join(process.cwd(), 'tvcan-win-x64.zip');
 const sourceFolder = path.join(process.cwd(), 'dist-app', 'tvcan-win32-x64');

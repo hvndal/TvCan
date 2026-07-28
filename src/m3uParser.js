@@ -81,71 +81,103 @@ function normalizeCategory(rawGroup = '', channelTitle = '', tvgCountry = '') {
   const text = `${rawGroup} ${channelTitle}`.toLowerCase();
   const rawGroupLower = rawGroup.toLowerCase();
 
-  // 1. Kids
+  // 1. Kids — checked first so 'kids entertainment' doesn't fall into Entertainment
   if (
     text.includes('kid') || text.includes('child') || text.includes('cartoon') ||
     text.includes('disney') || text.includes('nick') || text.includes('anime') ||
     text.includes('junior') || text.includes('toon') || text.includes('baby') ||
-    text.includes('animation')
+    text.includes('animation') || text.includes('cbeebies') || text.includes('cbbc') ||
+    text.includes('boomerang') || text.includes('boing') || text.includes('gulli')
   ) {
     return '🧸 Kids';
   }
 
-  // 2. Entertainment
+  // 2. Sports — before Entertainment to prevent 'sport show' going to Entertainment
   if (
-    text.includes('movie') || text.includes('cinema') || text.includes('film') ||
-    text.includes('series') || text.includes('drama') || text.includes('show') ||
-    text.includes('comedy') || text.includes('action') || text.includes('enter') ||
-    text.includes('thriller') || text.includes('romance') || text.includes('horror') ||
-    text.includes('tv')
-  ) {
-    return '🍿 Entertainment';
-  }
-  
-  // 3. Sports
-  if (
-    text.includes('sport') || text.includes('soccer') || text.includes('foot') ||
-    text.includes('nba') || text.includes('nfl') || text.includes('espn') || 
-    text.includes('wwe') || text.includes('fight') || text.includes('racing')
+    text.includes('sport') || text.includes('soccer') || text.includes('football') ||
+    text.includes(' nba') || text.includes(' nfl') || text.includes('espn') ||
+    text.includes('wwe') || text.includes(' ufc') || text.includes('fight') ||
+    text.includes('racing') || text.includes('f1 ') || text.includes('golf') ||
+    text.includes('tennis') || text.includes('cricket') || text.includes('bein') ||
+    text.includes('eurosport') || text.includes('dazn') || text.includes('motogp')
   ) {
     return '⚽ Sports';
   }
-  
-  // 4. News
+
+  // 3. News
   if (
-    text.includes('news') || text.includes('weather') || text.includes('cnn') ||
-    text.includes('bbc')
+    text.includes('news') || text.includes('weather') || text.includes('al jazeera') ||
+    text.includes('euronews') || text.includes('bloomberg') || text.includes('reuters') ||
+    text.includes('msnbc') || text.includes('sky news') || text.includes('cnn') ||
+    text.includes('politic') || text.includes('bbc news')
   ) {
     return '📰 News';
   }
 
-  // 5. Countries
+  // 4. Music
+  if (
+    text.includes('music') || text.includes(' radio') || text.includes('mtv') ||
+    text.includes(' vh1') || text.includes('trace ') || text.includes('clubbing') ||
+    text.includes(' dj ') || text.includes('sound') || text.includes('song')
+  ) {
+    return '🎵 Music';
+  }
+
+  // 5. Documentary
+  if (
+    text.includes('docu') || text.includes('discovery') || text.includes('history') ||
+    text.includes('nature') || text.includes('science') || text.includes('nat geo') ||
+    text.includes('planet') || text.includes('animal') || text.includes('wildlife')
+  ) {
+    return '🌍 Documentary';
+  }
+
+  // 6. Entertainment (movies, series, drama etc) — 'tv' keyword removed as it is too broad
+  if (
+    text.includes('movie') || text.includes('cinema') || text.includes('film') ||
+    text.includes('series') || text.includes('drama') || text.includes('show') ||
+    text.includes('comedy') || text.includes('action') || text.includes('entertain') ||
+    text.includes('thriller') || text.includes('romance') || text.includes('horror') ||
+    text.includes('sitcom') || text.includes('reality') || text.includes('variety')
+  ) {
+    return '🍿 Entertainment';
+  }
+
+  // 7. Countries — use tvg-country attribute first
   if (tvgCountry && tvgCountry.trim() !== '') {
     return `🗺️ ${tvgCountry.trim().toUpperCase()}`;
   }
 
-  // Fallback to extract country from raw group (e.g. "UK - Entertainment" -> "UK")
-  const countryMatch = rawGroup.match(/^([A-Z]{2,3}|[A-Z][a-z]+(?: [A-Z][a-z]+)*)(?:\s*[-|:]|\s+)/);
+  // Fallback: extract leading country code/name from group title e.g. "UK - General"
+  const countryMatch = rawGroup.match(/^([A-Z]{2,4}|[A-Z][a-z]+(?: [A-Z][a-z]+)*)(?:\s*[-|:]|\s+)/);
   if (countryMatch && countryMatch[1]) {
-    const possibleCountry = countryMatch[1].trim().toUpperCase();
-    if (possibleCountry.length <= 15 && possibleCountry !== 'THE' && possibleCountry !== 'ALL' && possibleCountry !== 'LIVE') {
-      return `🗺️ ${possibleCountry}`;
+    const possibleCountry = countryMatch[1].trim();
+    const upper = possibleCountry.toUpperCase();
+    const blocklist = new Set(['THE','ALL','LIVE','TOP','NEW','FREE','HOT','WEB','NET','BOX']);
+    if (possibleCountry.length <= 20 && !blocklist.has(upper)) {
+      return `🗺️ ${upper}`;
     }
   }
 
-  if (rawGroup && rawGroup.trim() !== '' && rawGroupLower !== 'undefined' && rawGroupLower !== 'general' && rawGroupLower !== 'misc') {
-    return `🗺️ ${rawGroup.trim()}`;
+  // If group title is a non-generic name treat it as a country/region
+  if (rawGroup && rawGroup.trim() !== '') {
+    const blocklist = ['undefined','general','misc','other','unknown','all','free','live'];
+    if (!blocklist.includes(rawGroupLower)) {
+      return `🗺️ ${rawGroup.trim()}`;
+    }
   }
 
-  // 6. Misc
+  // 8. Misc — true fallback
   return '📺 Misc';
 }
 
 const CATEGORY_ORDER = [
   '🧸 Kids',
-  '🍿 Entertainment',
   '⚽ Sports',
-  '📰 News'
+  '📰 News',
+  '🎵 Music',
+  '🌍 Documentary',
+  '🍿 Entertainment'
 ];
 
 export function extractCategories(channels) {

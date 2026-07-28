@@ -3,14 +3,69 @@
   "version": "1.0.0",
   "description": "Desktop live TV streamer for free public IPTV channels",
   "main": "electron/main.js",
-  "author": "hvndal",
+  "author": {
+    "name": "herman",
+    "email": "hvndal@users.noreply.github.com"
+  },
   "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "electron:dev": "vite & electron .",
-    "dist": "vite build && electron-packager . tvcan --platform=win32 --arch=x64 --icon=icon.ico --out=dist-app --overwrite"
+    "dist": "vite build && electron-packager . tvcan --platform=win32 --arch=x64 --icon=icon.ico --out=dist-app --overwrite",
+    "installer": "node build-nsis.js"
+  },
+  "build": {
+    "appId": "com.hvndal.tvcan",
+    "productName": "tvcan",
+    "copyright": "Copyright 2024 herman",
+    "icon": "icon.ico",
+    "directories": {
+      "output": "dist-installer",
+      "buildResources": "."
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "node_modules/**/*",
+      "index.html",
+      "package.json",
+      "public/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "icon.ico",
+      "artifactName": "tvcan-Setup-${version}.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico",
+      "installerHeaderIcon": "icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "tvcan",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "displayLanguageSelector": false,
+      "installerLanguages": [
+        "English"
+      ],
+      "license": null
+    },
+    "compression": "maximum",
+    "removePackageScripts": true
   },
   "dependencies": {
     "hls.js": "^1.5.20",
@@ -20,6 +75,7 @@
   "devDependencies": {
     "archiver": "^8.0.0",
     "electron": "^34.2.0",
+    "electron-builder": "^25.1.8",
     "electron-packager": "^17.1.2",
     "electron-winstaller": "^5.4.4",
     "vite": "^6.1.0"
