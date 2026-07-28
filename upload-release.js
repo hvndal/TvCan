@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 
-const GITHUB_TOKEN = 'REDACTED_TOKEN_USE_ENV_VAR';
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
 const REPO_OWNER = 'hvndal';
 const REPO_NAME = 'TvCan';
 const TAG_NAME = 'v1.0.0';
