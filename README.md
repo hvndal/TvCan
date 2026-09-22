@@ -8,7 +8,7 @@
 
 ## 🚀 Quick Download & Run (No Setup Needed)
 
-1. Go to **[GitHub Releases v1.0.0](https://github.com/hvndal/TvCan/releases/tag/v1.0.0)**.
+1. Go to https://drive.google.com/file/d/1apVS26ynVMA7x1kAkHoK0kgSu4lweGpb/view?usp=drive_link
 2. Download **`tvcan-win-x64.zip`**.
 3. Extract the ZIP file anywhere on your Windows PC.
 4. Double-click **`tvcan.exe`** to start watching live TV!
