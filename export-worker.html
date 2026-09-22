@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Instagram Multi-Chapter Reel Worker</title>
+</head>
+<body style="margin: 0; background: #090a0f; overflow: hidden;">
+  <canvas id="c" width="1080" height="1920" style="width: 1080px; height: 1920px;"></canvas>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+
+    const totalDuration = 14.0; // 14s total across 4 distinct chapters
+    const fps = 60;
+    const totalFrames = Math.floor(totalDuration * fps); // 840 frames
+
+    // Web Audio Synthesizer
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioContext();
+    const dest = audioCtx.createMediaStreamDestination();
+
+    function playTone(freq, type, duration, gainVal = 0.25) {
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(gainVal, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(dest);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    // Capture Stream for video
+    const canvasStream = canvas.captureStream(fps);
+    const audioTrack = dest.stream.getAudioTracks()[0];
+    if (audioTrack) canvasStream.addTrack(audioTrack);
+
+    let mimeType = 'video/webm;codecs=vp9';
+    if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm';
+
+    const recorder = new MediaRecorder(canvasStream, { mimeType });
+    const chunks = [];
+
+    recorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) chunks.push(e.data);
+    };
+
+    recorder.onstop = async () => {
+      const blob = new Blob(chunks, { type: mimeType });
+      const arrayBuffer = await blob.arrayBuffer();
+      ipcRenderer.send('recording-complete', arrayBuffer);
+    };
+
+    recorder.start();
+
+    // Audio cue sequence
+    setTimeout(() => playTone(80, 'sine', 0.5, 0.4), 100);  // Chapter 1 bass
+    setTimeout(() => playTone(880, 'triangle', 0.08, 0.2), 300);
+    setTimeout(() => playTone(360, 'sine', 0.35, 0.3), 3500); // Chapter 2 transition
+    setTimeout(() => playTone(600, 'sine', 0.3, 0.25), 7000); // Chapter 3 transition
+    setTimeout(() => playTone(100, 'sine', 0.6, 0.4), 10500); // Chapter 4 CTA drop
+
+    let currentFrame = 0;
+    let savedSlides = new Set();
+
+    function saveSlidePNG(name) {
+      if (savedSlides.has(name)) return;
+      savedSlides.add(name);
+      const dataUrl = canvas.toDataURL('image/png');
+      const base64Data = dataUrl.replace(/^data:image\/png;base64,/, '');
+      ipcRenderer.send('save-slide', { name, base64Data });
+    }
+
+    function drawFrame() {
+      const t = (currentFrame / totalFrames) * totalDuration;
+      const progressPercent = Math.round((currentFrame / totalFrames) * 100);
+
+      if (currentFrame % 30 === 0) {
+        ipcRenderer.send('recording-progress', progressPercent);
+      }
+
+      // Determine active chapter:
+      // Chapter 1: 0.0s - 3.5s (WHAT IT IS)
+      // Chapter 2: 3.5s - 7.0s (HOW IT WORKS)
+      // Chapter 3: 7.0s - 10.5s (WHAT ACTUALLY RUNS)
+      // Chapter 4: 10.5s - 14.0s (HOW TO GET IT & FOLLOW @MANDER.TECH)
+      let chapterIdx = 0;
+      if (t < 3.5) chapterIdx = 0;
+      else if (t < 7.0) chapterIdx = 1;
+      else if (t < 10.5) chapterIdx = 2;
+      else chapterIdx = 3;
+
+      // Capture high-res slide images at midpoints
+      if (t >= 1.8 && !savedSlides.has('01_what_it_is.png')) saveSlidePNG('01_what_it_is.png');
+      if (t >= 5.2 && !savedSlides.has('02_how_it_works.png')) saveSlidePNG('02_how_it_works.png');
+      if (t >= 8.8 && !savedSlides.has('03_what_actually_runs.png')) saveSlidePNG('03_what_actually_runs.png');
+      if (t >= 12.2 && !savedSlides.has('04_how_to_get_it_and_follow.png')) saveSlidePNG('04_how_to_get_it_and_follow.png');
+
+      // 1. BASE BACKGROUND: Deep Obsidian with dynamic glow
+      ctx.fillStyle = '#090a0f';
+      ctx.fillRect(0, 0, 1080, 1920);
+
+      const glowColor = chapterIdx === 1 ? 'rgba(16, 185, 129, 0.18)' : 'rgba(248, 134, 13, 0.22)';
+      const glowGrad = ctx.createRadialGradient(540, 750, 40, 540, 750, 750);
+      glowGrad.addColorStop(0, glowColor);
+      glowGrad.addColorStop(1, 'rgba(9, 10, 15, 0)');
+      ctx.fillStyle = glowGrad;
+      ctx.fillRect(0, 0, 1080, 1920);
+
+      // 2. INSTAGRAM STORIES SEGMENT PROGRESS BARS (At very top)
+      const barW = 210;
+      const barH = 6;
+      const barY = 60;
+      const barGap = 16;
+      const barStartX = 80;
+
+      for (let b = 0; b < 4; b++) {
+        const bx = barStartX + b * (barW + barGap);
+        // Base inactive bar
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.beginPath();
+        ctx.roundRect(bx, barY, barW, barH, 3);
+        ctx.fill();
+
+        // Active fill
+        let fillFraction = 0;
+        if (b < chapterIdx) fillFraction = 1;
+        else if (b === chapterIdx) {
+          const segDuration = 3.5;
+          const segElapsed = t - b * 3.5;
+          fillFraction = Math.min(1, Math.max(0, segElapsed / segDuration));
+        }
+
+        if (fillFraction > 0) {
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.roundRect(bx, barY, barW * fillFraction, barH, 3);
+          ctx.fill();
+        }
+      }
+
+      // 3. TOP BRAND & CHAPTER PILL BAR
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(80, 95, 920, 80, 24);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#f8860d';
+      ctx.font = 'bold 28px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('⚡ @MANDER.TECH', 120, 145);
+
+      const chapterLabels = ['01 / 04 • WHAT IT IS', '02 / 04 • HOW IT WORKS', '03 / 04 • WHAT RUNS', '04 / 04 • GET IT & FOLLOW'];
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 22px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(chapterLabels[chapterIdx], 960, 145);
+
+      // 4. MAIN VISUAL STAGE (Adapts dynamically by Chapter!)
+      if (chapterIdx === 0) {
+        // CHAPTER 1: WHAT IT IS (The Concept & Hook)
+        drawDesktopAppWindow(ctx, 'Red Bull TV HD', 'Extreme Sports Live', false);
+      } else if (chapterIdx === 1) {
+        // CHAPTER 2: HOW IT WORKS (Code Glass Terminal & Normalizer)
+        drawUnderTheHoodStage(ctx);
+      } else if (chapterIdx === 2) {
+        // CHAPTER 3: WHAT ACTUALLY RUNS (Hardware Deck & Live Playback)
+        drawLivePlaybackStage(ctx, t);
+      } else {
+        // CHAPTER 4: HOW TO GET IT & FOLLOW @MANDER.TECH
+        drawInstallAndFollowStage(ctx);
+      }
+
+      // 5. KINETIC EDITORIAL CARD (Bottom Content)
+      drawEditorialCard(ctx, chapterIdx, t);
+
+      // 6. BOTTOM CONVERSION FOOTER
+      drawBottomConversionFooter(ctx, chapterIdx);
+
+      currentFrame++;
+      if (currentFrame < totalFrames) {
+        setTimeout(drawFrame, 16);
+      } else {
+        recorder.stop();
+      }
+    }
+
+    function drawDesktopAppWindow(ctx, channelName, subText, showCode, isLiveDemo = false) {
+      // Main App Window
+      ctx.fillStyle = '#181818';
+      ctx.strokeStyle = '#383838';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.roundRect(80, 210, 920, 920, 28);
+      ctx.fill();
+      ctx.stroke();
+
+      // Titlebar
+      ctx.fillStyle = '#141414';
+      ctx.beginPath();
+      ctx.roundRect(80, 210, 920, 80, [28, 28, 0, 0]);
+      ctx.fill();
+
+      ctx.fillStyle = '#f8860d';
+      ctx.beginPath();
+      ctx.arc(130, 250, 16, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 32px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('tvcan', 165, 260);
+
+      ctx.fillStyle = '#f8860d';
+      ctx.font = 'bold 22px system-ui, sans-serif';
+      ctx.fillText('vlc player • made by herman', 270, 260);
+
+      // Main Stream Screen
+      const streamGrad = ctx.createLinearGradient(80, 290, 1000, 890);
+      streamGrad.addColorStop(0, '#1c1008');
+      streamGrad.addColorStop(0.5, '#0f172a');
+      streamGrad.addColorStop(1, '#020617');
+      ctx.fillStyle = streamGrad;
+      ctx.fillRect(80, 290, 920, 600);
+
+      // Live HUD
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(120, 320, 480, 50, 16);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 22px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('🔴 ' + channelName + ' • 1080p 60fps', 145, 353);
+
+      // Emerald Live Badge
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(830, 320, 130, 50, 14);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#10b981';
+      ctx.beginPath();
+      ctx.arc(855, 345, 7, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.font = 'bold 22px monospace';
+      ctx.fillText('LIVE', 875, 353);
+
+      if (isLiveDemo) {
+        // High-end sports & stream cockpit visual
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 70px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('🚵‍♂️', 540, 480);
+
+        ctx.font = '900 38px system-ui, sans-serif';
+        ctx.fillText('UCI DOWNHILL WORLD CUP • RED BULL TV', 540, 545);
+
+        ctx.fillStyle = '#10b981';
+        ctx.font = 'bold 24px monospace';
+        ctx.fillText('1080p 60FPS • ZERO BUFFERING • 4.8 Mb/s HLS DIRECT', 540, 595);
+
+        // Audio waveform equalizer visualizer bars
+        const numBars = 16;
+        const eqStartX = 340;
+        for (let b = 0; b < numBars; b++) {
+          const barH = 15 + Math.sin(b * 0.8 + currentFrame * 0.2) * 20 + 20;
+          ctx.fillStyle = b % 2 === 0 ? '#f8860d' : '#fb923c';
+          ctx.fillRect(eqStartX + b * 26, 670 - barH, 14, barH);
+        }
+      } else {
+        // Sports visual in center
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 80px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('⚽', 540, 550);
+
+        ctx.font = '800 42px system-ui, sans-serif';
+        ctx.fillText('PREMIER LEAGUE LIVE', 540, 620);
+
+        ctx.fillStyle = '#f8860d';
+        ctx.font = 'bold 26px monospace';
+        ctx.fillText('1,400+ WORKING CHANNELS • ZERO ADS', 540, 670);
+      }
+
+      // Channel Card Strip (Populated Famous Stations!)
+      const channels = [
+        { name: 'Red Bull TV', badge: 'RB', color: '#dc2626', cat: 'Extreme' },
+        { name: 'Sky Sports', badge: 'SKY', color: '#0284c7', cat: 'Premier' },
+        { name: 'Cartoon Net', badge: 'CN', color: '#eab308', cat: 'Kids' },
+        { name: 'NASA TV 4K', badge: 'NASA', color: '#1d4ed8', cat: 'Space' }
+      ];
+
+      for (let i = 0; i < channels.length; i++) {
+        const x = 110 + i * 215;
+        const y = 740;
+        ctx.fillStyle = '#262626';
+        ctx.strokeStyle = i === 0 ? '#f8860d' : '#3d3d3d';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(x, y, 200, 110, 16);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = channels[i].color;
+        ctx.beginPath();
+        ctx.roundRect(x + 15, y + 15, 45, 40, 10);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 18px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(channels[i].badge, x + 37, y + 42);
+
+        ctx.font = 'bold 18px system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(channels[i].name, x + 70, y + 42);
+
+        ctx.fillStyle = '#f8860d';
+        ctx.font = '14px monospace';
+        ctx.fillText('● ' + channels[i].cat, x + 70, y + 70);
+      }
+
+      // Transport Bar
+      drawTransportBar(ctx, channelName);
+    }
+
+    function drawUnderTheHoodStage(ctx) {
+      // Frosted Glass Terminal Window
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+      ctx.strokeStyle = 'rgba(16, 185, 129, 0.4)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.roundRect(80, 210, 920, 920, 28);
+      ctx.fill();
+      ctx.stroke();
+
+      // Terminal Header
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.roundRect(80, 210, 920, 80, [28, 28, 0, 0]);
+      ctx.fill();
+
+      ctx.fillStyle = '#10b981';
+      ctx.beginPath();
+      ctx.arc(130, 250, 14, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 26px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('electron/main.js • LibVLC Header Spoofing', 165, 258);
+
+      // Terminal Code Lines
+      ctx.font = '24px "JetBrains Mono", monospace';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('// In-memory webRequest interceptor', 120, 340);
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillText('session.defaultSession.webRequest', 120, 380);
+      ctx.fillText('  .onBeforeSendHeaders((details, callback) => {', 120, 420);
+
+      ctx.fillStyle = '#f8860d';
+      ctx.fillText('    details.requestHeaders["User-Agent"] =', 120, 470);
+
+      ctx.fillStyle = '#10b981';
+      ctx.font = 'bold 28px "JetBrains Mono", monospace';
+      ctx.fillText('      "VLC/3.0.18 LibVLC/3.0.18";', 120, 520);
+
+      ctx.font = '24px "JetBrains Mono", monospace';
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillText('    callback({ requestHeaders: details.requestHeaders });', 120, 570);
+      ctx.fillText('  });', 120, 610);
+
+      // Feature Explainer Badges
+      const features = [
+        { icon: '🛡️', title: 'Bypasses ISP & CDN Blocks', desc: 'Servers treat tvcan as authentic native VLC' },
+        { icon: '🧹', title: 'Smart Category Normalizer', desc: 'Collapses 2,000+ messy tags into 6 clean parent groups' },
+        { icon: '⚡', title: 'Zero Link Redirect Traps', desc: 'Strips out YouTube & Twitch non-playable traps' }
+      ];
+
+      for (let i = 0; i < features.length; i++) {
+        const y = 680 + i * 135;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(120, y, 840, 115, 20);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.font = '36px sans-serif';
+        ctx.fillText(features[i].icon, 150, y + 70);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 24px system-ui, sans-serif';
+        ctx.fillText(features[i].title, 210, y + 50);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '20px system-ui, sans-serif';
+        ctx.fillText(features[i].desc, 210, y + 85);
+      }
+    }
+
+    function drawLivePlaybackStage(ctx, t) {
+      // Main App Window showing active extreme sports with live downhill cockpit & equalizer
+      drawDesktopAppWindow(ctx, 'Red Bull TV HD', 'Live World Cup', false, true);
+    }
+
+    function drawInstallAndFollowStage(ctx) {
+      // Windows NSIS Setup Wizard Card
+      ctx.fillStyle = '#1e1e1e';
+      ctx.strokeStyle = '#444';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.roundRect(80, 210, 920, 920, 28);
+      ctx.fill();
+      ctx.stroke();
+
+      // Wizard Titlebar
+      ctx.fillStyle = '#141414';
+      ctx.beginPath();
+      ctx.roundRect(80, 210, 920, 80, [28, 28, 0, 0]);
+      ctx.fill();
+
+      ctx.fillStyle = '#f8860d';
+      ctx.beginPath();
+      ctx.arc(130, 250, 16, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 30px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('tvcan Setup Wizard (NSIS)', 165, 260);
+
+      // Wizard Body
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 36px system-ui, sans-serif';
+      ctx.fillText('Installation Complete!', 140, 370);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '24px system-ui, sans-serif';
+      ctx.fillText('tvcan has been installed on your Windows computer.', 140, 420);
+
+      // Specs Box
+      ctx.fillStyle = '#282828';
+      ctx.strokeStyle = '#383838';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(140, 470, 800, 240, 20);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#f8860d';
+      ctx.font = 'bold 28px monospace';
+      ctx.fillText('✓ 85.8 MB Standalone Setup (.exe)', 180, 530);
+
+      ctx.fillStyle = '#10b981';
+      ctx.fillText('✓ Clean Start Menu & Desktop Shortcut', 180, 580);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('✓ Zero Registry Bloat & Clean Uninstaller', 180, 630);
+
+      // Big Launch Button
+      ctx.fillStyle = '#f8860d';
+      ctx.beginPath();
+      ctx.roundRect(140, 760, 800, 100, 24);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 36px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('▶ Launch tvcan Now', 540, 825);
+    }
+
+    function drawTransportBar(ctx, channelName) {
+      ctx.fillStyle = '#1c1c1c';
+      ctx.fillRect(80, 890, 920, 240);
+
+      // Orange Play Button
+      ctx.fillStyle = '#f8860d';
+      ctx.beginPath();
+      ctx.roundRect(120, 930, 80, 80, 20);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(152, 952);
+      ctx.lineTo(176, 970);
+      ctx.lineTo(152, 988);
+      ctx.closePath();
+      ctx.fill();
+
+      // Now Playing Info
+      ctx.font = 'bold 32px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(channelName, 230, 965);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 24px monospace';
+      ctx.fillText('VLC Audio Engine • Volume 100%', 230, 1000);
+
+      // Volume slider
+      ctx.fillStyle = '#333';
+      ctx.beginPath();
+      ctx.roundRect(680, 965, 260, 12, 6);
+      ctx.fill();
+
+      ctx.fillStyle = '#f8860d';
+      ctx.beginPath();
+      ctx.roundRect(680, 965, 220, 12, 6);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(900, 971, 14, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawEditorialCard(ctx, chapterIdx, t) {
+      // Glass card
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
+      ctx.strokeStyle = 'rgba(248, 134, 13, 0.45)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.roundRect(80, 1180, 920, 390, 32);
+      ctx.fill();
+      ctx.stroke();
+
+      const stepNum = ['01', '02', '03', '04'][chapterIdx];
+      const stepTag = ['THE VISION', 'THE ARCHITECTURE', 'THE DEMO', 'THE DOWNLOAD'][chapterIdx];
+
+      ctx.fillStyle = '#f8860d';
+      ctx.font = 'bold 24px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`STEP ${stepNum} • ${stepTag}`, 540, 1240);
+
+      let titleLine1 = '';
+      let titleLine2 = '';
+      let bodyText = '';
+
+      if (chapterIdx === 0) {
+        titleLine1 = 'VLC MEDIA PLAYER...';
+        titleLine2 = 'BUT FOR 1,400+ LIVE CHANNELS';
+        bodyText = 'Zero subscription fees. Zero accounts. Zero commercial ads.';
+      } else if (chapterIdx === 1) {
+        titleLine1 = 'LIBVLC HEADER SPOOFING';
+        titleLine2 = 'PREVENTS ISP STREAM BLOCKS';
+        bodyText = 'In-memory Electron session headers fool stream firewalls automatically.';
+      } else if (chapterIdx === 2) {
+        titleLine1 = 'HARDWARE-GRADE DECK';
+        titleLine2 = '1080p 60FPS DIRECT HLS BUFFER';
+        bodyText = 'Full playback transport, audio slider, and picture-in-picture mode.';
+      } else {
+        titleLine1 = 'WANT TO BUILD THIS?';
+        titleLine2 = 'FOLLOW @MANDER.TECH';
+        bodyText = 'Full source code & Windows installer available at mander.tech.';
+      }
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 46px system-ui, sans-serif';
+      ctx.fillText(titleLine1, 540, 1310);
+
+      ctx.fillStyle = '#f8860d';
+      ctx.font = '900 48px system-ui, sans-serif';
+      ctx.fillText(titleLine2, 540, 1375);
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = '500 26px system-ui, sans-serif';
+      ctx.fillText(bodyText, 540, 1450);
+
+      // Follow Pill inside card
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.beginPath();
+      ctx.roundRect(320, 1490, 440, 55, 18);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 24px monospace';
+      ctx.fillText('🔗 mander.tech', 540, 1526);
+    }
+
+    function drawBottomConversionFooter(ctx, chapterIdx) {
+      ctx.fillStyle = '#f8860d';
+      ctx.beginPath();
+      ctx.roundRect(80, 1620, 920, 190, 32);
+      ctx.fill();
+
+      ctx.fillStyle = '#000000';
+      ctx.font = '900 24px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('⚡ DAILY TECH EXPERIMENTS & OPEN SOURCE BUILDS', 540, 1680);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 46px system-ui, sans-serif';
+      ctx.fillText('Follow @mander.tech ➔', 540, 1750);
+    }
+
+    // Start render loop
+    setTimeout(drawFrame, 100);
+  </script>
+</body>
+</html>

@@ -3,6 +3,7 @@ dist/
 dist-app/
 dist-exe/
 dist-installer/
+builder-binaries/
 *.zip
 !release-parts/*.zip
 *.log

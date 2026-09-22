@@ -14,7 +14,8 @@
     "preview": "vite preview",
     "electron:dev": "vite & electron .",
     "dist": "vite build && electron-packager . tvcan --platform=win32 --arch=x64 --icon=icon.ico --out=dist-app --overwrite",
-    "installer": "node build-nsis.js"
+    "installer": "node build-nsis.js",
+    "render:video": "electron render-to-desktop.js"
   },
   "build": {
     "appId": "com.hvndal.tvcan",
@@ -43,7 +44,8 @@
         }
       ],
       "icon": "icon.ico",
-      "artifactName": "tvcan-Setup-${version}.exe"
+      "artifactName": "tvcan-Setup-${version}.exe",
+      "sign": "./nosign.js"
     },
     "nsis": {
       "oneClick": false,
@@ -58,10 +60,6 @@
       "shortcutName": "tvcan",
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": false,
-      "displayLanguageSelector": false,
-      "installerLanguages": [
-        "English"
-      ],
       "license": null
     },
     "compression": "maximum",
