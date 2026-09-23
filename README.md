@@ -44,8 +44,17 @@ npm run dist     # Package executable .exe
 
 ---
 
+## 🏛️ Engineering & Studio
+
+`tvcan` is developed and maintained by **[Herman Hundal](https://hermanify.online)** at **[MANDER](https://www.mander.tech)**, an independent software and digital studio based in **Vancouver & Langley, BC, Canada**.
+
+- **Studio:** [MANDER](https://www.mander.tech) — Web Design, Software & Local SEO in [Vancouver](https://www.mander.tech/locations/metro-vancouver/vancouver) & [Langley, BC](https://www.mander.tech/locations/metro-vancouver/langley)
+- **Developer:** [Herman Hundal](https://hermanify.online) ([LinkedIn](https://linkedin.com/in/hermanify) • [GitHub](https://github.com/hvndal))
+
+---
+
 ## 📄 License
 
 Distributed under the MIT License. See `LICENSE` for details.
 
-<p align="center">Made with ❤️ by Herman • Powered by open-source IPTV</p>
+<p align="center">Crafted with precision in Vancouver & Langley, BC by <a href="https://www.mander.tech">MANDER</a> • Powered by open-source IPTV</p>

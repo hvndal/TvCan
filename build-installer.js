@@ -12,7 +12,7 @@ async function buildInstaller() {
     await createWindowsInstaller({
       appDirectory: path.join(__dirname, 'dist-app', 'tvcan-win32-x64'),
       outputDirectory: path.join(__dirname, 'dist-installer'),
-      authors: 'herman',
+      authors: 'Herman Hundal (MANDER - Vancouver, BC)',
       exe: 'tvcan.exe',
       setupExe: 'tvcan-Setup-1.0.0.exe',
       noMsi: true,
