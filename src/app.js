@@ -201,7 +201,7 @@ class TvCanVlcApp {
     this.dom.playingStatus.textContent = 'Stopped';
     this.dom.iconPlay.classList.remove('hidden');
     this.dom.iconPause.classList.add('hidden');
-    this.showOverlay(false, 'Stream Stopped', 'vlc player • tvcan made by herman');
+    this.showOverlay(false, 'Stream Stopped', 'vlc player • mander • vancouver, bc');
   }
 
   showOverlay(showSpinner, title, sub) {
@@ -226,7 +226,7 @@ class TvCanVlcApp {
   }
 
   async loadPlaylist(forceFetch = false) {
-    this.showOverlay(true, 'Loading Live Channels...', 'tvcan vlc player • made by herman');
+    this.showOverlay(true, 'Loading Live Channels...', 'tvcan vlc player • mander • vancouver, bc');
 
     let combinedChannels = [];
 
@@ -284,7 +284,7 @@ class TvCanVlcApp {
 
     this.updateCategoryUI();
     this.renderChannels();
-    this.showOverlay(false, 'Select a Channel to Play', 'tvcan vlc player • made by herman');
+    this.showOverlay(false, 'Select a Channel to Play', 'tvcan vlc player • mander • vancouver, bc');
   }
 
   updateCategoryUI() {
@@ -446,7 +446,7 @@ class TvCanVlcApp {
               this.hlsEngine.recoverMediaError();
               break;
             default:
-              this.showOverlay(false, 'Stream Offline', 'vlc player • tvcan made by herman');
+              this.showOverlay(false, 'Stream Offline', 'vlc player • mander • vancouver, bc');
               break;
           }
         }

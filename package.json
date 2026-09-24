@@ -3,10 +3,8 @@
   "version": "1.0.0",
   "description": "Desktop live TV streamer for free public IPTV channels",
   "main": "electron/main.js",
-  "author": {
-    "name": "herman",
-    "email": "hvndal@users.noreply.github.com"
-  },
+  "author": "Herman Hundal (MANDER - Vancouver, BC) <harmanify@protonmail.com>",
+  "homepage": "https://www.mander.tech",
   "license": "MIT",
   "scripts": {
     "dev": "vite",
